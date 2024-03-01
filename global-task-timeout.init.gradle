@@ -1,0 +1,45 @@
+import java.time.Duration
+import java.time.temporal.ChronoUnit
+import static java.time.temporal.ChronoUnit.MILLIS
+import static java.time.temporal.ChronoUnit.SECONDS
+import static java.time.temporal.ChronoUnit.MINUTES
+import static java.time.temporal.ChronoUnit.HOURS
+
+enum Timeouts {
+    MILLIS('ms', ChronoUnit.MILLIS),
+    SECONDS('s', ChronoUnit.SECONDS),
+    MINUTES('m', ChronoUnit.MINUTES),
+    HOURS('h', ChronoUnit.HOURS);
+
+    private final String suffix;
+    private final ChronoUnit unit;
+
+    Timeouts(String suffix, ChronoUnit unit) {
+        this.suffix = suffix;
+        this.unit = unit;
+    }
+
+    private Duration parseDuration(String s) {
+        return unit.duration.multipliedBy(Long.parseLong(s.substring(0, s.length() - suffix.length())))
+    }
+
+    static Duration parse(String s) {
+        def unit = values().sort { a, b -> a.suffix.length() <=> a.suffix.length() }
+                .find { s.endsWith(it.suffix) }
+        if (unit == null) {
+            // Assumes number of milliseconds
+            return Duration.ofMillis(Long.parseLong(s))
+        }
+
+        return unit.parseDuration(s)
+    }
+}
+
+gradle.allprojects { project ->
+    tasks.configureEach { task ->
+        task.timeout.convention(
+                project.providers.gradleProperty('global-task-timeout')
+                    .map {Timeouts.parse(it) }
+        )
+    }
+}
